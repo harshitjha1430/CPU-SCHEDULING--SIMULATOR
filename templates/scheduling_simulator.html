@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Scheduling Simulator</title>
+    <style>
+     body {
+    font-family: Arial, sans-serif;
+    background: url('{{ url_for('static', filename='images/R.jpeg') }}') no-repeat center center fixed;
+    background-size: cover; /* Ensures the image covers the entire background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    color: #333;
+}
+
+.container {
+    max-width: 500px;
+    width: 100%;
+    padding: 20px;
+    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white background */
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 1s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+h2 {
+    text-align: center;
+    color: #4CAF50;
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3); /* 3D effect for the title */
+}
+
+label {
+    display: block;
+    margin-top: 15px;
+    font-size: 1.1rem;
+    text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.2); /* Text shadow for labels */
+}
+
+input, select, button, textarea {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease-in-out;
+    text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.1); /* Text shadow effect for input fields */
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: #4CAF50;
+}
+
+button {
+    background-color: #28a745;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease; /* Added transform transition */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2); /* Add shadow for button */
+}
+
+button:hover {
+    background-color: #218838;
+    transform: translateY(-2px); /* 3D hover effect for button */
+    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.3); /* Darker shadow on hover for 3D effect */
+}
+
+.results {
+    margin-top: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #ddd;
+}
+
+th {
+    background-color: #4CAF50;
+    color: white;
+    font-size: 1.2rem;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+    transition: background-color 0.3s ease;
+}
+
+td {
+    background-color: #f9f9f9;
+}
+
+#error-message {
+    color: red;
+    margin-top: 20px;
+    font-size: 1.2rem;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Add responsiveness for smaller screens */
+@media (max-width: 600px) {
+    .container {
+        padding: 15px;
+        width: 90%;
+    }
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>CPU Scheduling Simulator</h2>
+        <label for="algorithm">Select Scheduling Algorithm:</label>
+        <select id="algorithm">
+            <option value="fcfs">First-Come, First-Served (FCFS)</option>
+            <option value="round_robin">Round Robin</option>
+            <option value="sjf">Shortest Job First (SJF)</option>
+        </select>
+        
+        <label for="preemptive">Preemptive (only for SJF):</label>
+        <select id="preemptive">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+        </select>
+
+        <label for="quantum">Time Quantum (only for Round Robin):</label>
+        <input type="number" id="quantum" placeholder="Enter quantum for Round Robin" disabled>
+
+        <label for="processes">Enter Process Data:</label>
+        <textarea id="processes" rows="5" placeholder="Format: pid,arrival_time,burst_time (one per line)"></textarea>
+
+        <button onclick="simulate()">Simulate</button>
+        
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        document.getElementById("algorithm").addEventListener("change", function() {
+            const isRoundRobin = this.value === "round_robin";
+            const isSJF = this.value === "sjf";
+            document.getElementById("quantum").disabled = !isRoundRobin;
+            document.getElementById("preemptive").disabled = !isSJF;
+        });
+
+        function simulate() {
+            const algorithm = document.getElementById("algorithm").value;
+            const quantum = document.getElementById("quantum").value.trim();
+            const preemptive = document.getElementById("preemptive").value === "true";
+
+            const processes = document.getElementById("processes").value.trim().split("\n").map(line => {
+                const [pid, arrival, burst] = line.split(",").map(Number);
+                return { pid, arrival_time: arrival, burst_time: burst };
+            });
+
+            const data = { processes };
+
+            // Check if 'quantum' is provided and is valid
+            if (algorithm === "round_robin" && quantum && !isNaN(quantum)) {
+                data.quantum = parseInt(quantum);  // Only add if it's a valid number
+            }
+
+            // Check if 'preemptive' is required for the algorithm
+            if (algorithm === "sjf") {
+                data.preemptive = preemptive;  // This may be optional or a boolean based on the algorithm
+            }
+
+            let url = "";
+            if (algorithm === "fcfs") {
+                url = "/schedule/fcfs";
+            } else if (algorithm === "round_robin") {
+                url = "/schedule/round_robin";
+            } else if (algorithm === "sjf") {
+                url = "/schedule/sjf";
+            }
+
+            // Send the data to the backend
+            fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.text();  // Expecting HTML in response
+            })
+            .then(html => {
+                // Inject the HTML response (the results page) directly into the current page
+                document.open();
+                document.write(html);
+                document.close();
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                document.getElementById("results").innerHTML = "<p style='color: red;'>An error occurred. Please check the console for details.</p>";
+            });
+        }
+    </script>
+</body>
+</html>

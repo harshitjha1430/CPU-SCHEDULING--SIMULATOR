@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Results</title>
+    <style>
+      body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: url('{{ url_for('static', filename='images/R.jpeg') }}') ;
+    background-size: cover; /* Ensures the image covers the entire background */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    color: #333;
+    background-attachment: scroll; /* Allow the background to scroll with the page */
+}
+
+        }
+        h2 { 
+            margin-bottom: 20px; 
+            color: #4CAF50; 
+            font-size: 2.5rem; 
+            text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        h2:hover {
+            transform: translateY(-5px);
+        }
+
+        canvas { 
+            display: block; 
+            margin: 40px auto; 
+            border: 3px solid #ddd; 
+            background: #fff; 
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+            border-radius: 10px; 
+            transition: transform 0.3s ease-in-out;
+        }
+        canvas:hover {
+            transform: scale(1.05);
+        }
+
+        table { 
+            width: 100%; 
+            max-width: 900px; 
+            margin: 20px auto; 
+            border-collapse: collapse; 
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.15); 
+            border-radius: 8px;
+            background: #fff;
+            transition: box-shadow 0.3s ease-in-out;
+        }
+        table:hover {
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+        }
+
+        th, td { 
+            padding: 12px; 
+            text-align: center; 
+            border: 1px solid #ddd; 
+        }
+        th { 
+            background-color: #4CAF50; 
+            color: white; 
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+            transition: background-color 0.3s ease;
+        }
+        td {
+            background-color: #f9f9f9;
+        }
+
+        #error-message { 
+            color: red; 
+            margin-top: 20px; 
+            font-size: 1.2rem;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* Animations for the chart drawing */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #gantt-chart-container {
+            animation: fadeIn 1s ease-in-out;
+        }
+   #calculation-section {
+    margin-top: 30px;
+    text-align: left;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #333;
+    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.calculation {
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-left: 5px solid #007bff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 5px;
+}
+
+/* 3D Hover Effect */
+.calculation:hover {
+    transform: translateY(-10px) rotateX(10deg) rotateY(10deg);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2); /* Deeper shadow for the 3D effect */
+}
+
+.calculation h3 {
+    font-size: 1.3rem;
+    color: #007bff;
+}
+
+.calculation p {
+    font-size: 1.1rem;
+    margin: 5px 0;
+}
+
+    </style>
+</head>
+<body>
+    <h2>Scheduling Algorithm Results - {{ algorithm }}</h2>
+
+    <div id="gantt-chart-container">
+        <canvas id="gantt-chart"></canvas>
+    </div>
+
+    <table id="results-table">
+        <thead>
+            <tr>
+                <th>PID</th>
+                <th>Arrival Time</th>
+                <th>Burst Time</th>
+                <th>Completion Time</th>
+                <th>Turnaround Time</th>
+                <th>Waiting Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in results %}
+            <tr>
+                <td>{{ row.PID }}</td>
+                <td>{{ row['Arrival Time'] }}</td>
+                <td>{{ row['Burst Time'] }}</td>
+                <td>{{ row['Completion Time'] }}</td>
+                <td>{{ row['Turnaround Time'] }}</td>
+                <td>{{ row['Waiting Time'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+      <div id="calculation-section">
+        {% for row in results %}
+        <div class="calculation">
+            <h3>PID: {{ row.PID }}</h3>
+            <p><strong>Completion Time:</strong> We can see from the Gantt chart the completion time is {{ row['Completion Time'] }}.</p>
+            <p><strong>Turnaround Time:</strong> The turnaround time is calculated as Completion Time - Arrival Time = {{ row['Completion Time'] }} - {{ row['Arrival Time'] }} = {{ row['Turnaround Time'] }}.</p>
+            <p><strong>Waiting Time:</strong> The waiting time is calculated as Turnaround Time - Burst Time = {{ row['Turnaround Time'] }} - {{ row['Burst Time'] }} = {{ row['Waiting Time'] }}.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="error-message"></div>
+
+    <script>
+        const results = {{ results | tojson }};
+        const canvas = document.getElementById("gantt-chart");
+        const ctx = canvas.getContext("2d");
+        const chartWidth = 800;
+        const chartHeight = 100;
+        const timeUnit = 20; // Pixels per time unit
+        const quantum = {{ quantum | tojson }};
+        const isPreemptive = {{ preemptive | tojson }};
+
+        canvas.width = chartWidth;
+        canvas.height = chartHeight;
+
+        const totalTime = Math.max(...results.map(r => r["Completion Time"])); // Total time based on max completion time
+        const scaleFactor = chartWidth / totalTime; // Scale factor to fit the chart
+        let currentTime = 0; // Track the current time in the simulation
+        let processes = results.map(r => ({
+            pid: r.PID,
+            arrivalTime: r['Arrival Time'],
+            burstTime: r['Burst Time'],
+            remainingTime: r['Burst Time'],
+            startTime: null,
+            completed: false,
+            waitTime: 0,
+            turnaroundTime: 0
+        }));
+
+        let ganttChartData = [];
+
+        const schedulingType = "{{ algorithm }}"; // FCFS, SJF Non-Preemptive, SJF Preemptive, Round Robin
+
+        if (schedulingType === "FCFS") {
+            processes.sort((a, b) => a.arrivalTime - b.arrivalTime);
+
+            processes.forEach((process) => {
+                const startTime = Math.max(process.arrivalTime, currentTime);
+                ganttChartData.push({
+                    pid: process.pid,
+                    startTime: startTime,
+                    endTime: startTime + process.burstTime
+                });
+                currentTime = startTime + process.burstTime; // Update current time after process finishes
+            });
+        } else if (schedulingType === "SJF") {
+            if (isPreemptive) {
+                let remainingProcesses = [...processes];
+                let completedProcesses = [];
+                let currentTime = 0; // Starting time
+
+                remainingProcesses.sort((a, b) => a.arrivalTime - b.arrivalTime);
+
+                while (remainingProcesses.length > 0) {
+                    let readyQueue = remainingProcesses.filter(p => p.arrivalTime <= currentTime && p.remainingTime > 0);
+
+                    if (readyQueue.length > 0) {
+                        readyQueue.sort((a, b) => a.remainingTime - b.remainingTime);
+
+                        let process = readyQueue[0];
+                        let startTime = Math.max(process.arrivalTime, currentTime);
+
+                        ganttChartData.push({
+                            pid: process.pid,
+                            startTime: startTime,
+                            endTime: startTime + 1
+                        });
+
+                        process.remainingTime -= 1;
+                        currentTime = startTime + 1;
+
+                        if (process.remainingTime === 0) {
+                            completedProcesses.push(process);
+                        }
+                    } else {
+                        currentTime += 1;
+                    }
+
+                    remainingProcesses = remainingProcesses.filter(p => p.remainingTime > 0);
+                }
+            }
+        } else if (schedulingType === "Round Robin") {
+            let queue = [];
+            let timeSlice = quantum;
+
+            processes.sort((a, b) => a.arrivalTime - b.arrivalTime);
+
+            let currentTime = 0;
+            let remainingProcesses = [...processes];
+
+            queue.push(...remainingProcesses);
+
+            while (queue.length > 0) {
+                let process = queue.shift();
+                let startTime = Math.max(process.arrivalTime, currentTime);
+                let executeTime = Math.min(process.remainingTime, timeSlice);
+
+                ganttChartData.push({
+                    pid: process.pid,
+                    startTime: startTime,
+                    endTime: startTime + executeTime
+                });
+
+                process.remainingTime -= executeTime;
+                currentTime = startTime + executeTime;
+
+                if (process.remainingTime > 0) {
+                    queue.push(process);
+                }
+
+                while (remainingProcesses.length > 0 && remainingProcesses[0].arrivalTime <= currentTime) {
+                    queue.push(remainingProcesses.shift());
+                }
+            }
+        }
+
+        // Drawing the Gantt chart
+        ganttChartData.forEach((entry, index) => {
+            const startX = entry.startTime * scaleFactor;
+            const width = (entry.endTime - entry.startTime) * scaleFactor;
+            const barHeight = 30;
+            const y = 40;
+
+            const color = `hsl(${(entry.pid * 60) % 360}, 70%, 70%)`;
+
+            ctx.fillStyle = color;
+            ctx.fillRect(startX, y, width, barHeight);
+            ctx.strokeStyle = "black";
+            ctx.strokeRect(startX, y, width, barHeight);
+
+            ctx.fillStyle = "black";
+            ctx.fillText(`P${entry.pid}`, startX + 5, y + barHeight / 2);
+        });
+
+        // Drawing the timeline
+        ctx.strokeStyle = "#000";
+        ctx.beginPath();
+        ctx.moveTo(0, 70); // Starting point for the timeline
+        ctx.lineTo(chartWidth, 70);
+        ctx.stroke();
+
+        for (let t = 0; t <= totalTime; t++) {
+            const xPos = t * scaleFactor;
+            ctx.beginPath();
+            ctx.moveTo(xPos, 70);
+            ctx.lineTo(xPos, 80);
+            ctx.stroke();
+
+            if (t % 2 === 0) {
+                ctx.fillText(t, xPos - 5, 95); // Time labels
+            }
+        }
+    </script>
+</body>
+</html>
